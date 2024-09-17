@@ -459,7 +459,18 @@ public class LDAPStorageProvider implements UserStorageProvider,
                 .flatMap(Function.identity())
                 .skip(firstResult)
                 .limit(maxResults)
-                .map(ldapUser -> importUserFromLDAP(session, realm, ldapUser));
+                .map(ldapUser -> {
+                    String ldapUsername = LDAPUtils.getUsername(ldapUser, this.ldapIdentityStore.getConfig());
+                    UserModel localUser = UserStoragePrivateUtil.
+                        userLocalStorage(session).
+                        getUserByUsername(realm, ldapUsername);
+
+                    if (localUser == null) {
+                        return importUserFromLDAP(session, realm, ldapUser);
+                    } else {
+                        return proxy(realm, localUser, ldapUser, false);
+                    }
+                });
     }
 
     private Stream<LDAPObject> loadUsersByUniqueAttributeChunk(RealmModel realm, String uidName, Collection<String> uids) {
